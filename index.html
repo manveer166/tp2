@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vehicle Routing Problem Solver</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        form { margin: 20px; }
+        label, input { display: block; margin: 10px 0; }
+        #results { margin-top: 20px; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/p5.dom@1.4.0/lib/p5.dom.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/p5.sound@1.4.0/lib/p5.sound.min.js"></script>
+</head>
+<body>
+    <h1>Vehicle Routing Problem Solver</h1>
+    <form id="vrp-form">
+        <label for="api_key">Google Maps API Key:</label>
+        <input type="text" id="api_key" name="api_key" required>
+        
+        <label for="patient_addresses">Patient Addresses (comma-separated):</label>
+        <input type="text" id="patient_addresses" name="patient_addresses" required>
+        
+        <label for="worker_names">Worker Names (comma-separated):</label>
+        <input type="text" id="worker_names" name="worker_names" required>
+        
+        <button type="submit">Optimize Routes</button>
+    </form>
+    <div id="results"></div>
+
+    <script>
+        document.getElementById('vrp-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const api_key = document.getElementById('api_key').value;
+            const patient_addresses = document.getElementById('patient_addresses').value.split(',');
+            const worker_names = document.getElementById('worker_names').value.split(',');
+
+            const addresses = ['CV2 2TE, UK', ...patient_addresses];
+
+            // Function to get distance matrix from Google Maps API
+            async function getDistanceMatrix(api_key, addresses) {
+                const response = await fetch(`https://maps.googleapis.com/maps/api/distancematrix/json?origins=${addresses.join('|')}&destinations=${addresses.join('|')}&key=${api_key}`);
+                const data = await response.json();
+                return data.rows.map(row => row.elements.map(element => element.distance.value / 1000));
+            }
+
+            getDistanceMatrix(api_key, addresses).then(distanceMatrix => {
+                // Now we have the distance matrix and can solve the VRP
+                solveVRP(distanceMatrix, worker_names);
+            });
+
+            function solveVRP(distanceMatrix, workerNames) {
+                const numWorkers = workerNames.length;
+                const numLocations = distanceMatrix.length;
+
+                // Function to create an array of zeros
+                const createZeroArray = (size) => Array.from({length: size}, () => 0);
+
+                // Decision variables
+                let x = Array.from({length: numWorkers}, () => Array.from({length: numLocations}, () => createZeroArray(numLocations)));
+                let u = Array.from({length: numWorkers}, () => createZeroArray(numLocations));
+
+                // Optimization logic here (this is a simplified example)
+                // Implementing a simple heuristic for VRP solution
+                let routes = Array.from({length: numWorkers}, () => [0]);
+                for (let i = 1; i < numLocations; i++) {
+                    let worker = i % numWorkers;
+                    routes[worker].push(i);
+                }
+                routes.forEach(route => route.push(0));
+
+                displayResults(routes, distanceMatrix, workerNames);
+            }
+
+            function displayResults(routes, distanceMatrix, workerNames) {
+                let resultsDiv = document.getElementById('results');
+                resultsDiv.innerHTML = '<h2>Optimization Results</h2>';
+                routes.forEach((route, workerId) => {
+                    let distance = route.reduce((acc, curr, i) => {
+                        if (i > 0) acc += distanceMatrix[route[i-1]][curr];
+                        return acc;
+                    }, 0);
+                    resultsDiv.innerHTML += `<p>Worker: ${workerNames[workerId]}<br>Route: ${route.join(' -> ')}<br>Distance: ${distance.toFixed(2)} km</p>`;
+                });
+            }
+        });
+    </script>
+</body>
+</html>
